@@ -47,42 +47,42 @@
     "brackets": [
       {
         "min": 0,
-        "max": 2500,
+        "max": 3333,
         "rate": 0,
         "deduction": 0
       },
       {
-        "min": 2501,
-        "max": 4166.67,
-        "rate": 0.10,
-        "deduction": 250
-      },
-      {
-        "min": 4166.68,
+        "min": 3333.01,
         "max": 5000,
-        "rate": 0.20,
-        "deduction": 666.67
+        "rate": 0.10,
+        "deduction": 333.33
       },
       {
         "min": 5000.01,
-        "max": 6666.67,
-        "rate": 0.30,
-        "deduction": 1166.67
+        "max": 6667,
+        "rate": 0.20,
+        "deduction": 833.33
       },
       {
-        "min": 6666.68,
+        "min": 6667.01,
+        "max": 8333,
+        "rate": 0.30,
+        "deduction": 1500
+      },
+      {
+        "min": 8333.01,
         "max": 15000,
         "rate": 0.34,
-        "deduction": 1433.33
+        "deduction": 1833.33
       },
       {
         "min": 15000.01,
         "max": null,
-        "rate": 0.38,
-        "deduction": 2033.33
+        "rate": 0.37,
+        "deduction": 2283.33
       }
     ],
-    "familyDeductionPerDependent": 360,
+    "familyDeductionPerDependent": 50,
     "maxDependents": 6
   },
   "frais_professionnels": {
