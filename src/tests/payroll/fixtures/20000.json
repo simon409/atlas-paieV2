@@ -1,0 +1,21 @@
+{
+  "input": {
+    "baseSalary": 20000,
+    "allowances": 0,
+    "bonuses": 0,
+    "deductions": 0,
+    "dependentsCount": 0
+  },
+  "expected": {
+    "grossSalary": 20000,
+    "cnssEmployee": 268.8,
+    "cnssEmployer": 538.8,
+    "amoEmployee": 452,
+    "amoEmployer": 822,
+    "fraisProfessionnels": 2500,
+    "netTaxable": 16779.2,
+    "irNet": 3924.97,
+    "netSalary": 15354.23,
+    "employerCost": 21360.8
+  }
+}

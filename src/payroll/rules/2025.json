@@ -1,0 +1,147 @@
+{
+  "schemaVersion": "1.0",
+  "country": "MA",
+  "currency": "MAD",
+  "calculationMode": "deterministic_v1",
+  "year": 2025,
+  "pipeline": [
+    "cnss",
+    "amo",
+    "frais_professionnels",
+    "ir",
+    "net"
+  ],
+  "cnss": {
+    "ceiling": 6000,
+    "contributions": [
+      {
+        "code": "social_security_employee",
+        "role": "employee",
+        "rate": 0.0448
+      },
+      {
+        "code": "social_security_employer",
+        "role": "employer",
+        "rate": 0.0898
+      }
+    ]
+  },
+  "amo": {
+    "base": "gross",
+    "contributions": [
+      {
+        "code": "health_insurance_employee",
+        "role": "employee",
+        "rate": 0.0226
+      },
+      {
+        "code": "health_insurance_employer",
+        "role": "employer",
+        "rate": 0.0411
+      }
+    ]
+  },
+  "ir": {
+    "method": "progressive_with_deduction",
+    "brackets": [
+      {
+        "min": 0,
+        "max": 3333,
+        "rate": 0,
+        "deduction": 0
+      },
+      {
+        "min": 3333.01,
+        "max": 5000,
+        "rate": 0.1,
+        "deduction": 333.33
+      },
+      {
+        "min": 5000.01,
+        "max": 6667,
+        "rate": 0.2,
+        "deduction": 833.33
+      },
+      {
+        "min": 6667.01,
+        "max": 8333,
+        "rate": 0.3,
+        "deduction": 1500
+      },
+      {
+        "min": 8333.01,
+        "max": 15000,
+        "rate": 0.34,
+        "deduction": 1833.33
+      },
+      {
+        "min": 15000.01,
+        "max": null,
+        "rate": 0.37,
+        "deduction": 2283.33
+      }
+    ],
+    "familyDeductionPerDependent": 50,
+    "maxDependents": 6
+  },
+  "frais_professionnels": {
+    "method": "percentage_with_cap",
+    "rate": 0.2,
+    "annual_cap": 30000
+  },
+  "seniority": {
+    "base": "base_salary",
+    "tiers": [
+      {
+        "yearsMin": 0,
+        "yearsMax": 2,
+        "rate": 0
+      },
+      {
+        "yearsMin": 2,
+        "yearsMax": 5,
+        "rate": 0.05
+      },
+      {
+        "yearsMin": 5,
+        "yearsMax": 12,
+        "rate": 0.1
+      },
+      {
+        "yearsMin": 12,
+        "yearsMax": 20,
+        "rate": 0.15
+      },
+      {
+        "yearsMin": 20,
+        "yearsMax": 25,
+        "rate": 0.2
+      },
+      {
+        "yearsMin": 25,
+        "yearsMax": null,
+        "rate": 0.25
+      }
+    ]
+  },
+  "overtime": {
+    "rules": [
+      {
+        "type": "day_normal",
+        "multiplier": 1.25
+      },
+      {
+        "type": "night_normal",
+        "multiplier": 1.5
+      },
+      {
+        "type": "holiday_day",
+        "multiplier": 1.5
+      },
+      {
+        "type": "holiday_night",
+        "multiplier": 2
+      }
+    ]
+  }
+}

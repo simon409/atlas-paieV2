@@ -1,31 +1,106 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { login, logout, restoreSession, type AuthSession } from "./auth/auth.ts";
+import { AuthContext } from "./auth/AuthContext.tsx";
+import { useRoute } from "./hooks/useRoute.ts";
+import { DashboardLayout } from "./layouts/DashboardLayout.tsx";
+import { EmployeesPage } from "./pages/EmployeesPage.tsx";
+import { LoginPage } from "./pages/LoginPage.tsx";
+import { PayrollCalculatorPage } from "./pages/PayrollCalculatorPage.tsx";
+import { PayrollRunsPage } from "./pages/PayrollRunsPage.tsx";
+import { SettingsPage } from "./pages/SettingsPage.tsx";
+import { defaultPrivateRoute, isPrivateRoute, navigate } from "./router/routes.ts";
+import { PayslipsPage } from "./pages/PayslipsPage.tsx";
+import { PayrollJournalPage } from "./pages/PayrollJournalPage.tsx";
+import { DashboardPage } from "./pages/DashboardPage.tsx";
+import MovementsPage from "./pages/MovementsPage.tsx";
+import { CompanyProvider } from "./app/CompanyContext.tsx";
 
-export default function App() {
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col items-center justify-center p-8">
-      <main className="max-w-4xl w-full bg-white rounded-2xl shadow-xl p-10 text-center">
-        <h1 className="text-4xl font-extrabold text-slate-800 tracking-tight mb-4">
-          AtlasPaie
-        </h1>
-        <p className="text-lg text-slate-600 mb-8">
-          Moroccan Payroll Engine
-        </p>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
-          <div className="bg-slate-100 p-6 rounded-xl border border-slate-200">
-            <h2 className="font-semibold text-slate-800 mb-2">Deterministic Engine</h2>
-            <p className="text-sm text-slate-600">Pure functions ensuring the exact same output for any given input state.</p>
-          </div>
-          <div className="bg-slate-100 p-6 rounded-xl border border-slate-200">
-            <h2 className="font-semibold text-slate-800 mb-2">Law Versioning</h2>
-            <p className="text-sm text-slate-600">Dynamic loading of year-based rules for accurate CNSS and IR compliance.</p>
-          </div>
-          <div className="bg-slate-100 p-6 rounded-xl border border-slate-200">
-            <h2 className="font-semibold text-slate-800 mb-2">Immutable Logs</h2>
-            <p className="text-sm text-slate-600">Complete audit trail preventing silent changes to finalized payroll runs.</p>
-          </div>
-        </div>
+function App() {
+  const route = useRoute();
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+
+  useEffect(() => {
+    restoreSession()
+      .then((s) => {
+        setSession(s);
+        setAuthReady(true);
+      })
+      .catch(() => setAuthReady(true));
+  }, []);
+
+  useEffect(() => {
+    if (!authReady) return;
+
+    if (isPrivateRoute(route) && !session) {
+      navigate("/login");
+      return;
+    }
+    if (route === "/login" && session) {
+      navigate(defaultPrivateRoute);
+    }
+  }, [route, session, authReady]);
+
+  const handleLogin = useCallback(async (email: string, password: string) => {
+    const s = await login(email, password);
+    setSession(s);
+    navigate(defaultPrivateRoute);
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    await logout();
+    setSession(null);
+    navigate("/login");
+  }, []);
+
+  if (!authReady) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-zinc-50">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-200 border-t-emerald-600" />
       </main>
-    </div>
+    );
+  }
+
+  if (route === "/login" || !session) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
+
+  return (
+    <CompanyProvider>
+      <AuthContext.Provider value={session}>
+        <DashboardLayout
+          route={route}
+          session={session}
+          onLogout={handleLogout}
+        >
+          {renderPrivateRoute(route)}
+        </DashboardLayout>
+      </AuthContext.Provider>
+    </CompanyProvider>
   );
 }
+
+function renderPrivateRoute(route: string) {
+  switch (route) {
+    case "/dashboard":
+      return <DashboardPage />;
+    case "/dashboard/payroll":
+      return <PayrollCalculatorPage />;
+    case "/dashboard/movements":
+      return <MovementsPage />;
+    case "/dashboard/employees":
+      return <EmployeesPage />;
+    case "/dashboard/runs":
+      return <PayrollRunsPage />;
+    case "/dashboard/payslips":
+      return <PayslipsPage />;
+    case "/dashboard/journal":
+      return <PayrollJournalPage />;
+    case "/dashboard/settings":
+      return <SettingsPage />;
+    default:
+      return <EmployeesPage />;
+  }
+}
+
+export default App;

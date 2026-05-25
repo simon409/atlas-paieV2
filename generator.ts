@@ -1,5 +1,4 @@
-import { loadRules } from "./src/payroll/rules/loader.ts";
-import { calculatePayroll } from "./src/payroll/engine/grossToNet.ts";
+import { calculatePayroll, loadRules } from "./src/payroll/index.ts";
 
 const rules = loadRules(2026);
 

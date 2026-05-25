@@ -1,4 +1,5 @@
-export type PayrollStep = 'cnss' | 'amo' | 'frais_professionnels' | 'ir' | 'net';
+export type PayrollStep = "cnss" | "amo" | "frais_professionnels" | "ir" | "net";
+export type IRCalculationMode = "simplified" | "legal_simulation";
 
 
 export interface CNSSRules {
@@ -27,7 +28,7 @@ export interface IRBracket {
 }
 
 export interface IRRules {
-  method: 'progressive_with_deduction';
+  method: "progressive_with_deduction";
   brackets: IRBracket[];
   familyDeductionPerDependent: number; // e.g. 360 MAD per dependent
   maxDependents: number; // e.g. 6
