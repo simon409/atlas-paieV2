@@ -5,8 +5,6 @@ import {
   listPayrollRuns
 } from "../db/payrollRunStore.ts";
 import type { PayrollItem, PayrollItemLine, PayrollRun } from "../db/models.ts";
-import type { Employee } from "../db/models.ts";
-import { listEmployees } from "../db/store.ts";
 import { useCompany } from "../app/CompanyContext.tsx";
 import { Printer } from "lucide-react";
 
@@ -78,7 +76,6 @@ export function PayslipsPage() {
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   const [selectedItem, setSelectedItem] = useState<PayrollItem | null>(null);
-  const [employeesById, setEmployeesById] = useState<Record<string, Employee>>({});
 
   const [loading, setLoading] = useState<boolean>(false);
   const [loadingLines, setLoadingLines] = useState<boolean>(false);
@@ -94,8 +91,7 @@ export function PayslipsPage() {
     setLoading(true);
     setError("");
     try {
-      const [allRuns, employees] = await Promise.all([listPayrollRuns(), listEmployees()]);
-      setEmployeesById(Object.fromEntries(employees.map((employee) => [employee.id, employee])));
+      const [allRuns] = await Promise.all([listPayrollRuns()]);
 
       const lockedRuns = allRuns.filter(r => r.status === "LOCKED");
       setRuns(lockedRuns);
@@ -234,7 +230,14 @@ export function PayslipsPage() {
     return formatted.charAt(0).toUpperCase() + formatted.slice(1);
   };
 
-  const selectedEmployee = selectedItem ? employeesById[selectedItem.employeeId] : undefined;
+  const selectedEmployee = useMemo(() => {
+    if (!selectedItem) return undefined;
+    try {
+      return JSON.parse(selectedItem.employeeSnapshot) as Record<string, any>;
+    } catch {
+      return undefined;
+    }
+  }, [selectedItem]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 bg-slate-50/50 min-h-screen print:bg-white print:p-0">

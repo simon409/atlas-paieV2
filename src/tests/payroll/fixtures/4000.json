@@ -4,7 +4,8 @@
     "allowances": 0,
     "bonuses": 0,
     "deductions": 0,
-    "dependentsCount": 0
+    "dependentsCount": 0,
+    "childrenCount": 0
   },
   "expected": {
     "grossSalary": 4000,
@@ -15,6 +16,7 @@
     "fraisProfessionnels": 800,
     "netTaxable": 2930.4,
     "irNet": 0,
+    "familyAllowance": 0,
     "netSalary": 3730.4,
     "employerCost": 4523.6
   }

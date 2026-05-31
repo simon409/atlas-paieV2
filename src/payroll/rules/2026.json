@@ -85,6 +85,13 @@
     "familyDeductionPerDependent": 50,
     "maxDependents": 6
   },
+  "familyAllowance": {
+    "tiers": [
+      { "count": 3, "amount": 300 },
+      { "count": 3, "amount": 100 }
+    ],
+    "maxChildren": 6
+  },
   "frais_professionnels": {
     "method": "percentage_with_cap",
     "rate": 0.20,

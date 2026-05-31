@@ -1,4 +1,4 @@
-export type AppRoute = "/login" | "/dashboard" | "/dashboard/payroll" | "/dashboard/employees" | "/dashboard/movements" | "/dashboard/runs" | "/dashboard/payslips" | "/dashboard/journal" | "/dashboard/settings";
+export type AppRoute = "/login" | "/dashboard" | "/dashboard/payroll" | "/dashboard/employees" | "/dashboard/movements" | "/dashboard/runs" | "/dashboard/payslips" | "/dashboard/journal" | "/dashboard/settings" | "/dashboard/declarations";
 
 export const defaultPrivateRoute: AppRoute = "/dashboard";
 
@@ -29,5 +29,6 @@ function isKnownRoute(route: string): route is AppRoute {
     "/dashboard/payslips",
     "/dashboard/journal",
     "/dashboard/settings",
+    "/dashboard/declarations",
   ].includes(route);
 }

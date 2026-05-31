@@ -4,10 +4,10 @@ import rules2026 from "../payroll/rules/2026.json";
 import type { PayrollRules } from "../payroll/rules/types.ts";
 import type { PayrollInput, PayrollResult } from "../types/payroll.types.ts";
 import { getDrizzleDb, setupDatabase } from "./client.ts";
-import type { Employee, PayrollItem, PayrollItemLine, PayrollRun } from "./models.ts";
+import type { Employee, PayrollItem, PayrollItemLine, PayrollMovement, PayrollRun } from "./models.ts";
 import { listEmployees } from "./store.ts";
 import { payrollItemLines, payrollItems, payrollRuns } from "./schema.ts";
-import { getMovementTotals } from "./movementStore.ts";
+import { listMovements, getMovementTotals } from "./movementStore.ts";
 import { getActiveCompanyId } from "./companyStore.ts";
 
 const rules = rules2026 as PayrollRules;
@@ -70,15 +70,22 @@ export async function generatePayrollRun(period: string): Promise<{ run: Payroll
   }
 
   const runId = crypto.randomUUID();
+  const { dateDebut, dateFin } = periodToDateRange(period);
+
+  // Batch-fetch all movements + carry forwards once, not per employee
+  const [allMovements, carryForwardMap] = await Promise.all([
+    listMovements(dateDebut, dateFin),
+    buildCarryForwardMap(),
+  ]);
+
   const generated = await Promise.all(
     activeEmployees.map(async (employee) => {
-      const { dateDebut, dateFin } = periodToDateRange(period);
-      const movementTotals = await getMovementTotals(dateDebut, dateFin, employee.id);
+      const movementTotals = computeMovementTotals(allMovements, employee.id);
       const input = buildInput(employee, movementTotals);
       const result = calculatePayroll(input, rules);
       const item = await buildPayrollItem(runId, employee, input, result);
 
-      const previousCF = await getPreviousCarryForward(employee.id);
+      const previousCF = carryForwardMap.get(employee.id) ?? 0;
       const { netSalary, carryForward } = roundNetWithCarryForward(item.netSalary, previousCF);
       const roundingDiff = netSalary - item.netSalary;
       item.netSalary = netSalary;
@@ -101,7 +108,7 @@ export async function generatePayrollRun(period: string): Promise<{ run: Payroll
     totalGross: sum(generatedItems, "grossSalary"),
     totalNet: sum(generatedItems, "netSalary"),
     totalEmployerCost: generatedItems.reduce(
-      (total, item) => total + item.grossSalary + item.cnssEmployer + item.amo,
+      (total, item) => total + item.grossSalary + item.cnssEmployer + item.amo + item.familyAllowance,
       0,
     ),
   };
@@ -158,7 +165,7 @@ export async function recalculatePayrollItem(runId: string, itemId: string): Pro
     ...run,
     totalGross: allItems.reduce((s, i) => s + i.grossSalary, 0),
     totalNet: allItems.reduce((s, i) => s + i.netSalary, 0),
-    totalEmployerCost: allItems.reduce((s, i) => s + i.grossSalary + i.cnssEmployer + i.amo, 0),
+    totalEmployerCost: allItems.reduce((s, i) => s + i.grossSalary + i.cnssEmployer + i.amo + i.familyAllowance, 0),
   };
   await getDrizzleDb().update(payrollRuns).set(toPayrollRunRow(updatedRun)).where(eq(payrollRuns.id, runId)).run();
 
@@ -207,9 +214,60 @@ function buildInput(
     allowances: movementTotals.allowances,
     bonuses: movementTotals.bonuses,
     deductions: movementTotals.deductions,
-    dependentsCount: 0,
+    dependentsCount: employee.deductionCount,
+    childrenCount: employee.childrenCount,
     irMode: "legal_simulation",
   };
+}
+
+function computeMovementTotals(
+  movements: PayrollMovement[],
+  employeeId: string,
+): { allowances: number; bonuses: number; deductions: number; labels: { allowances: string[]; bonuses: string[]; deductions: string[] } } {
+  return movements.reduce(
+    (acc, m) => {
+      if (m.scope === "employee" && m.employeeId !== employeeId) return acc;
+      if (m.type === "BONUS") {
+        acc.bonuses += m.amount;
+        if (m.label) acc.labels.bonuses.push(m.label);
+      } else if (m.type === "TAXABLE_ALLOWANCE" || m.type === "NON_TAXABLE_ALLOWANCE") {
+        acc.allowances += m.amount;
+        if (m.label) acc.labels.allowances.push(m.label);
+      } else if (m.type === "DEDUCTION") {
+        acc.deductions += m.amount;
+        if (m.label) acc.labels.deductions.push(m.label);
+      }
+      return acc;
+    },
+    { allowances: 0, bonuses: 0, deductions: 0, labels: { allowances: [] as string[], bonuses: [] as string[], deductions: [] as string[] } },
+  );
+}
+
+async function buildCarryForwardMap(): Promise<Map<string, number>> {
+  await setupDatabase();
+  const allItems = await getDrizzleDb().select().from(payrollItems).all();
+  if (allItems.length === 0) return new Map();
+
+  const allRuns = await getDrizzleDb().select().from(payrollRuns).all();
+  const runPeriods = Object.fromEntries(allRuns.map((r) => [r.id, r.period]));
+
+  const employeeItems = new Map<string, typeof allItems>();
+  for (const item of allItems) {
+    const existing = employeeItems.get(item.employeeId) ?? [];
+    existing.push(item);
+    employeeItems.set(item.employeeId, existing);
+  }
+
+  const map = new Map<string, number>();
+  for (const [employeeId, items] of employeeItems) {
+    const latest = items
+      .filter((i) => runPeriods[i.payrollRunId])
+      .sort((a, b) => runPeriods[b.payrollRunId].localeCompare(runPeriods[a.payrollRunId]))[0];
+    if (latest) {
+      map.set(employeeId, centsToMoney(latest.roundingCarryForward ?? 0));
+    }
+  }
+  return map;
 }
 
 async function getPreviousCarryForward(employeeId: string): Promise<number> {
@@ -368,6 +426,17 @@ function buildPayrollItemLines(
       amount: result.amoEmployer,
       sortOrder: 100,
     },
+    {
+      id: crypto.randomUUID(),
+      payrollItemId,
+      code: "FAMILY_ALLOWANCE",
+      label: "Allocations familiales",
+      type: "EARNING",
+      baseAmount: null,
+      rate: null,
+      amount: result.familyAllowance,
+      sortOrder: 105,
+    },
   ];
   if (previousCarryForward > 0) {
     lines.push({
@@ -378,7 +447,7 @@ function buildPayrollItemLines(
       type: "DEDUCTION",
       baseAmount: null,
       rate: null,
-      amount: previousCarryForward,
+      amount: -previousCarryForward,
       sortOrder: 108,
     });
   }
@@ -436,6 +505,23 @@ async function buildPayrollItem(
     cumulativeIrDue: result.annualization?.cumulativeIRDue ?? null,
     roundingCarryForward: 0,
     roundingDiff: 0,
+    familyAllowance: result.familyAllowance,
+    employeeSnapshot: JSON.stringify({
+      fullName: employee.fullName,
+      matricule: employee.matricule,
+      cin: employee.cin,
+      cnssNumber: employee.cnssNumber,
+      functionTitle: employee.functionTitle,
+      department: employee.department,
+      hireDate: employee.hireDate,
+      seniorityDate: employee.seniorityDate,
+      birthDate: employee.birthDate,
+      familyStatus: employee.familyStatus,
+      childrenCount: employee.childrenCount,
+      deductionCount: employee.deductionCount,
+      contractType: employee.contractType,
+      salaryBase: employee.salaryBase,
+    }),
     traceJson: JSON.stringify(result.trace),
   };
 }
@@ -501,6 +587,8 @@ function toPayrollItemRow(item: PayrollItem): PayrollItemRow {
     cumulativeIrDue: nullableMoneyToCents(item.cumulativeIrDue),
     roundingCarryForward: moneyToCents(item.roundingCarryForward),
     roundingDiff: moneyToCents(item.roundingDiff),
+    familyAllowance: moneyToCents(item.familyAllowance),
+    employeeSnapshot: item.employeeSnapshot,
     traceJson: item.traceJson,
   };
 }
@@ -532,6 +620,8 @@ function fromPayrollItemRow(row: PayrollItemRow): PayrollItem {
     cumulativeIrDue: nullableCentsToMoney(row.cumulativeIrDue),
     roundingCarryForward: centsToMoney(row.roundingCarryForward ?? 0),
     roundingDiff: centsToMoney(row.roundingDiff ?? 0),
+    familyAllowance: centsToMoney(row.familyAllowance ?? 0),
+    employeeSnapshot: row.employeeSnapshot,
     traceJson: row.traceJson,
   };
 }
@@ -566,6 +656,35 @@ function fromPayrollItemLineRow(row: PayrollItemLineRow): PayrollItemLine {
 
 function sum<T>(items: T[], key: keyof T): number {
   return items.reduce((total, item) => total + Number(item[key] ?? 0), 0);
+}
+
+export async function getPreviousLockedRunItems(runId: string): Promise<Map<string, PayrollItem>> {
+  await setupDatabase();
+  const companyId = await getActiveCompanyId();
+
+  const currentRun = await getDrizzleDb()
+    .select()
+    .from(payrollRuns)
+    .where(and(eq(payrollRuns.id, runId), eq(payrollRuns.companyId, companyId)))
+    .get();
+  if (!currentRun) return new Map();
+
+  const previousLockedRuns = await getDrizzleDb()
+    .select()
+    .from(payrollRuns)
+    .where(and(eq(payrollRuns.companyId, companyId), eq(payrollRuns.status, "LOCKED"), eq(payrollRuns.ruleVersion, currentRun.ruleVersion)))
+    .orderBy(desc(payrollRuns.period))
+    .all();
+
+  const prevRun = previousLockedRuns.find((r) => r.period < currentRun.period);
+  if (!prevRun) return new Map();
+
+  const rows = await getDrizzleDb().select().from(payrollItems).where(eq(payrollItems.payrollRunId, prevRun.id)).all();
+  const map = new Map<string, PayrollItem>();
+  for (const row of rows) {
+    map.set(row.employeeId, fromPayrollItemRow(row));
+  }
+  return map;
 }
 
 function moneyToCents(value: number): number {

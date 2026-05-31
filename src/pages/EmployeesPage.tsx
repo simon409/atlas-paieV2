@@ -15,7 +15,7 @@ import {
   Briefcase,
   Building2
 } from "lucide-react";
-import { createEmployee, deleteEmployee, initializeAppDatabase, listEmployees, updateEmployee } from "../db/store.ts";
+import { createEmployee, deleteEmployee, initializeAppDatabase, listDepartments, listEmployees, updateEmployee } from "../db/store.ts";
 import type { ContractType, Employee, EmployeeDraft, EmployeeStatus } from "../db/models.ts";
 import { getActiveCompanyId } from "../db/companyStore.ts";
 import { useCompany } from "../app/CompanyContext.tsx";
@@ -55,6 +55,8 @@ export function EmployeesPage() {
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [departments, setDepartments] = useState<string[]>([]);
+  const [isAddingDepartment, setIsAddingDepartment] = useState(false);
   const { activeCompany } = useCompany();
   const canWrite = useCanWrite();
 
@@ -98,8 +100,9 @@ export function EmployeesPage() {
         setEmployees([]);
         return;
       }
-      const data = await listEmployees();
+      const [data, deptList] = await Promise.all([listEmployees(), listDepartments()]);
       setEmployees(data);
+      setDepartments(deptList);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Échec de chargement des profils.");
     } finally {
@@ -125,6 +128,7 @@ export function EmployeesPage() {
       setDraft(emptyDraft);
       setEditingId(null);
       setIsFormOpen(false);
+      setIsAddingDepartment(false);
       await refreshEmployees();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Impossible d'enregistrer le collaborateur");
@@ -159,6 +163,7 @@ export function EmployeesPage() {
     setEditingId(null);
     setDraft(emptyDraft);
     setIsFormOpen(false);
+    setIsAddingDepartment(false);
   }
 
   async function remove(id: string) {
@@ -384,14 +389,61 @@ export function EmployeesPage() {
                             required={false}
                           />
                           <TextField
-                            label="Département"
-                            value={draft.department}
-                            icon={<Building2 className="w-4 h-4" />}
-                            placeholder="ex. IT"
-                            onChange={(value) => setDraft({ ...draft, department: value })}
+                            label="Fonction"
+                            value={draft.functionTitle}
+                            icon={<Briefcase className="w-4 h-4" />}
+                            placeholder="ex. Développeur Front-End"
+                            onChange={(value) => setDraft({ ...draft, functionTitle: value })}
                             disabled={!canWrite || saving}
                             required={false}
                           />
+                          <label className="block">
+                            <span className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">Département</span>
+                            {isAddingDepartment ? (
+                              <div className="flex gap-2">
+                                <div className="relative flex-1">
+                                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                    <Building2 className="w-4 h-4" />
+                                  </div>
+                                  <input
+                                    className="h-10.5 w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10.5 pr-3.5 text-sm font-semibold text-slate-900 placeholder-slate-400 outline-none transition-all focus:border-slate-900 focus:bg-white focus:ring-4 focus:ring-slate-100 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+                                    placeholder="ex. IT"
+                                    value={draft.department}
+                                    disabled={!canWrite || saving}
+                                    onChange={(event) => setDraft({ ...draft, department: event.target.value })}
+                                  />
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsAddingDepartment(false)}
+                                  className="h-10.5 px-3 rounded-xl border border-slate-200 text-xs font-bold text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-all"
+                                  disabled={!canWrite || saving}
+                                >
+                                  Annuler
+                                </button>
+                              </div>
+                            ) : (
+                              <select
+                                className="h-10.5 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-sm font-semibold text-slate-900 outline-none transition-all focus:border-slate-900 focus:bg-white focus:ring-4 focus:ring-slate-100 disabled:bg-slate-50 disabled:cursor-not-allowed"
+                                value={draft.department}
+                                disabled={!canWrite || saving}
+                                onChange={(event) => {
+                                  if (event.target.value === "__NEW__") {
+                                    setIsAddingDepartment(true);
+                                    setDraft({ ...draft, department: "" });
+                                  } else {
+                                    setDraft({ ...draft, department: event.target.value });
+                                  }
+                                }}
+                              >
+                                <option value="" disabled>Choisir un département...</option>
+                                {departments.map((dept) => (
+                                  <option key={dept} value={dept}>{dept}</option>
+                                ))}
+                                <option value="__NEW__">+ Nouveau département...</option>
+                              </select>
+                            )}
+                          </label>
                         </div>
 
                         <div className="grid gap-4 sm:grid-cols-2">

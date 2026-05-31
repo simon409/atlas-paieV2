@@ -86,6 +86,8 @@ export const payrollItems = sqliteTable("payroll_items", {
   cumulativeIrDue: integer("cumulative_ir_due"),
   roundingCarryForward: integer("rounding_carry_forward").notNull().default(0),
   roundingDiff: integer("rounding_diff").notNull().default(0),
+  familyAllowance: integer("family_allowance").notNull().default(0),
+  employeeSnapshot: text("employee_snapshot").notNull().default("{}"),
   traceJson: text("trace_json").notNull(),
 });
 
@@ -131,6 +133,38 @@ export const payrollAdjustments = sqliteTable("payroll_adjustments", {
   deltaIr: integer("delta_ir").notNull(),
   reason: text("reason").notNull(),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
+export const declarations = sqliteTable("declarations", {
+  id: text("id").primaryKey(),
+  companyId: text("company_id").notNull(),
+  type: text("type").notNull(), // CNSS, IR
+  period: text("period").notNull(), // YYYY-MM
+  payrollRunId: text("payroll_run_id").notNull(),
+  status: text("status").notNull(), // DRAFT, GENERATED
+  generatedAt: integer("generated_at", { mode: "timestamp" }).notNull(),
+  exported: integer("exported").notNull().default(0), // boolean
+  totalsJson: text("totals_json").notNull(), // JSON string of aggregated totals
+});
+
+export const declarationLines = sqliteTable("declaration_lines", {
+  id: text("id").primaryKey(),
+  declarationId: text("declaration_id").notNull(),
+  employeeId: text("employee_id").notNull(),
+  matricule: text("matricule").notNull(),
+  fullName: text("full_name").notNull(),
+  cnssNumber: text("cnss_number"),
+  cin: text("cin").notNull(),
+  grossSalary: integer("gross_salary").notNull(),
+  cnssBase: integer("cnss_base"),
+  amoBase: integer("amo_base"),
+  employeeCnss: integer("employee_cnss"),
+  employerCnss: integer("employer_cnss"),
+  employeeAmo: integer("employee_amo"),
+  employerAmo: integer("employer_amo"),
+  ir: integer("ir"),
+  netSalary: integer("net_salary"),
+  familyAllowance: integer("family_allowance"),
 });
 
 export const rubriques = sqliteTable("rubriques", {

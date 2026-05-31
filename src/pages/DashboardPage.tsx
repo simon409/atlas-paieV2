@@ -23,8 +23,6 @@ const formatPeriodShort = (period: string): string => {
   return new Intl.DateTimeFormat("fr-MA", { month: "short", year: "2-digit" }).format(date).replace(".", "");
 };
 
-const currentPeriod = (): string => new Date().toISOString().slice(0, 7);
-
 type RunTotals = {
   grossSalary: number;
   cnssEmployee: number;
@@ -98,7 +96,7 @@ export function DashboardPage() {
   const latestTotals = useMemo(() => computeTotals(latestItems), [latestItems]);
   const previousTotals = useMemo(() => computeTotals(previousItems), [previousItems]);
 
-  const currentRun = useMemo(() => runs.find(r => r.period === currentPeriod()) ?? null, [runs]);
+  const currentRun = latestRun;
 
   const currentStatus = useMemo<"LOCKED" | "DRAFT" | "NONE">(() => {
     if (!currentRun) return "NONE";
@@ -151,7 +149,7 @@ export function DashboardPage() {
             {activeCompany?.name || "AtlasPaie"}
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Période de paie : <span className="font-semibold text-slate-700">{formatPeriod(currentPeriod())}</span>
+            Période de paie : <span className="font-semibold text-slate-700">{formatPeriod(currentRun?.period ?? new Date().toISOString().slice(0, 7))}</span>
           </p>
         </div>
         <div className="flex items-center gap-3 border border-slate-200 rounded-2xl p-2 bg-white shadow-sm">
@@ -256,7 +254,7 @@ export function DashboardPage() {
         <div className="rounded-2xl border border-slate-200/80 bg-white shadow-md shadow-slate-100/60 overflow-hidden">
           <div className="border-b border-slate-100 bg-slate-50/30 px-5 py-3.5 flex items-center justify-between">
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              {currentRun ? `Détail : ${formatPeriod(currentRun.period)}` : `Aucune paie pour ${formatPeriod(currentPeriod())}`}
+              {currentRun ? `Détail : ${formatPeriod(currentRun.period)}` : `Aucune paie pour ${formatPeriod(new Date().toISOString().slice(0, 7))}`}
             </h2>
             {currentRun && (
               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${

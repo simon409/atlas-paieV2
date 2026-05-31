@@ -8,6 +8,7 @@ export type PayrollState = {
   bonuses: Decimal;
   deductions: Decimal;
   dependentsCount: number;
+  childrenCount: number;
   cumulativeIR?: CumulativeIRContext;
   grossSalary: Decimal;
   cnssBase: Decimal;
@@ -29,6 +30,7 @@ export type PayrollState = {
     cumulativeIRDue: Decimal;
     previousIRWithheld: Decimal;
   };
+  familyAllowance: Decimal;
   netSalary: Decimal;
   employerCost: Decimal;
   trace: string[];
@@ -41,6 +43,7 @@ export function initPayrollState(input: PayrollInput): PayrollState {
     bonuses: D(input.bonuses),
     deductions: D(input.deductions),
     dependentsCount: input.dependentsCount,
+    childrenCount: input.childrenCount,
     cumulativeIR: input.cumulativeIR,
     grossSalary: D(0),
     cnssBase: D(0),
@@ -54,6 +57,7 @@ export function initPayrollState(input: PayrollInput): PayrollState {
     irBrut: D(0),
     irNet: D(0),
     irBracketRate: D(0),
+    familyAllowance: D(0),
     netSalary: D(0),
     employerCost: D(0),
     trace: [],
@@ -71,6 +75,7 @@ export function serializePayrollState(state: PayrollState): PayrollResult {
     netTaxable: toMoneyNumber(state.netTaxable),
     irBrut: toMoneyNumber(state.irBrut),
     irNet: toMoneyNumber(state.irNet),
+    familyAllowance: toMoneyNumber(state.familyAllowance),
     netSalary: toMoneyNumber(state.netSalary),
     employerCost: toMoneyNumber(state.employerCost),
     breakdown: {

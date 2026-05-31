@@ -11,6 +11,7 @@ test("throws when gross salary is negative", () => {
         bonuses: 0,
         deductions: 1,
         dependentsCount: 0,
+        childrenCount: 0,
       },
       rules2026 as PayrollRules,
     ),

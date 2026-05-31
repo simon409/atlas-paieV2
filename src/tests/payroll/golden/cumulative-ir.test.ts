@@ -13,6 +13,7 @@ test("legal simulation IR uses cumulative taxable and already withheld IR", () =
       bonuses: 0,
       deductions: 0,
       dependentsCount: 0,
+      childrenCount: 0,
       irMode: "legal_simulation",
       cumulativeIR: {
         month: 3,

@@ -156,6 +156,8 @@ export async function setupDatabase(): Promise<void> {
   await addColumnIfMissing("payroll_items", "previous_ir_withheld", "INTEGER");
   await addColumnIfMissing("payroll_items", "cumulative_ir_due", "INTEGER");
   await addColumnIfMissing("payroll_items", "trace_json", "TEXT NOT NULL DEFAULT '[]'");
+  await addColumnIfMissing("payroll_items", "family_allowance", "INTEGER NOT NULL DEFAULT 0");
+  await addColumnIfMissing("payroll_items", "employee_snapshot", "TEXT NOT NULL DEFAULT '{}'");
 
   await db.execute(`
     CREATE TABLE IF NOT EXISTS payroll_item_lines (
@@ -211,6 +213,42 @@ export async function setupDatabase(): Promise<void> {
       delta_ir INTEGER NOT NULL,
       reason TEXT NOT NULL,
       created_at INTEGER NOT NULL
+    )
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS declarations (
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      period TEXT NOT NULL,
+      payroll_run_id TEXT NOT NULL,
+      status TEXT NOT NULL,
+      generated_at INTEGER NOT NULL,
+      exported INTEGER NOT NULL DEFAULT 0,
+      totals_json TEXT NOT NULL
+    )
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS declaration_lines (
+      id TEXT PRIMARY KEY,
+      declaration_id TEXT NOT NULL,
+      employee_id TEXT NOT NULL,
+      matricule TEXT NOT NULL,
+      full_name TEXT NOT NULL,
+      cnss_number TEXT,
+      cin TEXT NOT NULL,
+      gross_salary INTEGER NOT NULL,
+      cnss_base INTEGER,
+      amo_base INTEGER,
+      employee_cnss INTEGER,
+      employer_cnss INTEGER,
+      employee_amo INTEGER,
+      employer_amo INTEGER,
+      ir INTEGER,
+      net_salary INTEGER,
+      family_allowance INTEGER
     )
   `);
 

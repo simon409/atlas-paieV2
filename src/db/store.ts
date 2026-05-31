@@ -1,4 +1,4 @@
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { getDrizzleDb, setupDatabase } from "./client.ts";
 import type { DatabaseStatus, Employee, EmployeeDraft } from "./models.ts";
 import { employees } from "./schema.ts";
@@ -234,6 +234,19 @@ function moneyToCents(value: number): number {
 
 function centsToMoney(value: number): number {
   return value / 100;
+}
+
+export async function listDepartments(): Promise<string[]> {
+  await ensureReady();
+  const companyId = await getActiveCompanyId();
+  const rows = await getDrizzleDb()
+    .select({ department: employees.department })
+    .from(employees)
+    .where(and(eq(employees.companyId, companyId), sql`${employees.department} != ''`))
+    .groupBy(employees.department)
+    .orderBy(asc(employees.department))
+    .all();
+  return rows.map((r) => r.department).filter(Boolean) as string[];
 }
 
 function formatUnknownError(err: unknown): string {

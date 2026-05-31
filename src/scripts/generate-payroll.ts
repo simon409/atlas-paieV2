@@ -8,6 +8,7 @@ const result = calculatePayroll(
     bonuses: 0,
     deductions: 0,
     dependentsCount: 0,
+    childrenCount: 0,
   },
   rules,
 );

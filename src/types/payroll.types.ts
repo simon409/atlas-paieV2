@@ -4,6 +4,7 @@ export interface PayrollInput {
   bonuses: number;
   deductions: number;
   dependentsCount: number;
+  childrenCount: number;
   irMode?: "simplified" | "legal_simulation";
   cumulativeIR?: CumulativeIRContext;
 }
@@ -24,6 +25,7 @@ export interface PayrollResult {
   netTaxable: number;
   irBrut: number;
   irNet: number;
+  familyAllowance: number;
   netSalary: number;
   employerCost: number;
   breakdown: {

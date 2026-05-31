@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { deletePayrollRun, generatePayrollRun, listPayrollItemLines, listPayrollItems, listPayrollRuns, recalculatePayrollItem, updatePayrollRunStatus } from "../db/payrollRunStore.ts";
+import { useEffect, useMemo, useState } from "react";
+import { deletePayrollRun, generatePayrollRun, getPreviousLockedRunItems, listPayrollItemLines, listPayrollItems, listPayrollRuns, recalculatePayrollItem, updatePayrollRunStatus } from "../db/payrollRunStore.ts";
 import type { PayrollItem, PayrollItemLine, PayrollRun } from "../db/models.ts";
 import { useCanWrite } from "../auth/AuthContext.tsx";
 
@@ -11,6 +11,28 @@ const formatMoney = (value: number): string =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
+
+const nextPeriod = (period: string): string => {
+  const [y, m] = period.split("-").map(Number);
+  const date = new Date(y, m);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+};
+
+function isSignificantChange(current: PayrollItem, previous: PayrollItem): boolean {
+  if (current.grossSalary !== previous.grossSalary) return true;
+  if (current.netSalary !== previous.netSalary) return true;
+  if (current.cnssEmployee !== previous.cnssEmployee) return true;
+  if (current.cnssEmployer !== previous.cnssEmployer) return true;
+  if (current.amo !== previous.amo) return true;
+  if (current.allowances !== previous.allowances) return true;
+  if (current.bonuses !== previous.bonuses) return true;
+  if (current.deductions !== previous.deductions) return true;
+  if (current.taxableIncome !== previous.taxableIncome) return true;
+  if (current.professionalExpenses !== previous.professionalExpenses) return true;
+  if (current.familyAllowance !== previous.familyAllowance) return true;
+  if (Math.abs(current.ir - previous.ir) > 1) return true;
+  return false;
+}
 
 // --- MAIN WRAPPER COMPONENT ---
 export function PayrollRunsPage() {
@@ -28,8 +50,26 @@ export function PayrollRunsPage() {
   const [loadingLines, setLoadingLines] = useState(false);
   const [error, setError] = useState("");
 
+  const [prevRunItems, setPrevRunItems] = useState<Map<string, PayrollItem>>(new Map());
+  const [showChangesOnly, setShowChangesOnly] = useState(false);
+
   const selectedRun = runs.find((r) => r.id === selectedRunId) ?? null;
   const selectedItem = items.find((i) => i.id === selectedItemId) ?? null;
+
+  const significantChanges = useMemo(() => {
+    const changed = new Set<string>();
+    for (const item of items) {
+      const prev = prevRunItems.get(item.employeeId);
+      if (!prev) continue;
+      if (isSignificantChange(item, prev)) changed.add(item.employeeId);
+    }
+    return changed;
+  }, [items, prevRunItems]);
+
+  const visibleItems = useMemo(() => {
+    if (!showChangesOnly) return items;
+    return items.filter((item) => significantChanges.has(item.employeeId));
+  }, [items, showChangesOnly, significantChanges]);
 
 
 
@@ -75,8 +115,12 @@ export function PayrollRunsPage() {
     setPeriod(runs.find((r) => r.id === runId)?.period ?? currentPeriod());
 
     try {
-      const nextItems = await listPayrollItems(runId);
+      const [nextItems, prevMap] = await Promise.all([
+        listPayrollItems(runId),
+        getPreviousLockedRunItems(runId),
+      ]);
       setItems(nextItems);
+      setPrevRunItems(prevMap);
       if (nextItems.length > 0) {
         await handleItemSelect(nextItems[0].id);
       }
@@ -150,6 +194,18 @@ export function PayrollRunsPage() {
     try {
       const updated = await updatePayrollRunStatus(selectedRun.id, "LOCKED");
       setRuns((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+
+      const nextMonth = nextPeriod(selectedRun.period);
+      const generated = await generatePayrollRun(nextMonth);
+      setRuns((prev) => [generated.run, ...prev.filter((r) => r.period !== nextMonth)]);
+      setSelectedRunId(generated.run.id);
+      setItems(generated.items);
+
+      if (generated.items.length > 0) {
+        setSelectedItemId(generated.items[0].id);
+        const nextLines = await listPayrollItemLines(generated.items[0].id);
+        setLines(nextLines);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Impossible de valider le traitement");
     } finally {
@@ -237,12 +293,16 @@ export function PayrollRunsPage() {
           )}
 
           <IndividualSlipsPanel
-            items={items}
+            items={visibleItems}
+            allItems={items}
             selectedItemId={selectedItemId}
             isLoading={loadingItems}
             isProcessing={busy}
             canWrite={canWrite}
             isLocked={selectedRun?.status === "LOCKED"}
+            significantChanges={significantChanges}
+            showChangesOnly={showChangesOnly}
+            onToggleFilter={() => setShowChangesOnly((v) => !v)}
             onSelectItem={handleItemSelect}
             onDropRun={selectedRun ? () => handleDropRun(selectedRun.id) : undefined}
             onRecalculateItem={selectedRun ? handleRecalculateItem : undefined}
@@ -316,24 +376,45 @@ function RunsSidebar({ runs, selectedId, onSelect }: SidebarProps) {
 
 interface SlipsPanelProps {
   items: PayrollItem[];
+  allItems: PayrollItem[];
   selectedItemId: string | null;
   isLoading: boolean;
   isProcessing: boolean;
   canWrite: boolean;
   isLocked: boolean;
+  significantChanges: Set<string>;
+  showChangesOnly: boolean;
+  onToggleFilter: () => void;
   onSelectItem: (id: string) => void;
   onDropRun?: () => void;
   onRecalculateItem?: (itemId: string) => void;
   onValidate?: () => void;
 }
 
-function IndividualSlipsPanel({ items, selectedItemId, isLoading, isProcessing, canWrite, isLocked, onSelectItem, onDropRun, onRecalculateItem, onValidate }: SlipsPanelProps) {
+function IndividualSlipsPanel({ items, allItems, selectedItemId, isLoading, isProcessing, canWrite, isLocked, significantChanges, showChangesOnly, onToggleFilter, onSelectItem, onDropRun, onRecalculateItem, onValidate }: SlipsPanelProps) {
+  const changeCount = [...allItems].filter((i) => significantChanges.has(i.employeeId)).length;
+
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
       <div className="flex items-center justify-between gap-4 border-b border-slate-100 bg-slate-50/30 px-6 py-4">
-        <div>
-          <h2 className="text-base font-bold text-slate-900">Bulletins individuels</h2>
-          <p className="text-xs text-slate-400 font-medium mt-0.5">Résultats par employé</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h2 className="text-base font-bold text-slate-900">Bulletins individuels</h2>
+            <p className="text-xs text-slate-400 font-medium mt-0.5">
+              {showChangesOnly
+                ? `${items.length} bulletin${items.length > 1 ? "s" : ""} modifié${items.length > 1 ? "s" : ""}`
+                : `${allItems.length} salarié${allItems.length > 1 ? "s" : ""}${changeCount > 0 ? ` · ${changeCount} modifié${changeCount > 1 ? "s" : ""}` : ""}`}
+            </p>
+          </div>
+          {changeCount > 0 && (
+            <button
+              className={`h-7 rounded-lg px-3 text-[11px] font-bold transition-all ${showChangesOnly ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}
+              type="button"
+              onClick={onToggleFilter}
+            >
+              {showChangesOnly ? "Tous" : "Modifications"}
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {onValidate && (
@@ -369,7 +450,8 @@ function IndividualSlipsPanel({ items, selectedItemId, isLoading, isProcessing, 
         </div>
       </div>
 
-      <div className="grid grid-cols-[minmax(180px,1.2fr)_110px_110px_110px_110px] gap-4 border-b border-slate-100 bg-slate-50/50 px-6 py-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+      <div className="grid grid-cols-[20px_minmax(160px,1.2fr)_110px_110px_110px_110px] gap-4 border-b border-slate-100 bg-slate-50/50 px-6 py-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+        <span />
         <span>Employé</span>
         <span className="text-right">Brut</span>
         <span className="text-right">IR</span>
@@ -387,19 +469,24 @@ function IndividualSlipsPanel({ items, selectedItemId, isLoading, isProcessing, 
           items.map((item) => {
             const isSelected = selectedItemId === item.id;
             const totalItemCost = item.grossSalary + (item.cnssEmployer ?? 0) + (item.amo ?? 0);
+            const hasChange = significantChanges.has(item.employeeId);
             return (
               <button
                 key={item.id}
-                className={`grid w-full grid-cols-[minmax(180px,1.2fr)_110px_110px_110px_110px] items-center gap-4 px-6 py-3.5 text-left text-sm transition-colors ${isSelected ? "bg-emerald-50/40" : "bg-white hover:bg-slate-50/50"
+                className={`grid w-full grid-cols-[20px_minmax(160px,1.2fr)_110px_110px_110px_110px] items-center gap-4 px-6 py-3.5 text-left text-sm transition-colors ${isSelected ? "bg-emerald-50/40" : "bg-white hover:bg-slate-50/50"
                   }`}
                 type="button"
                 onClick={() => onSelectItem(item.id)}
               >
-                <div className="pr-2">
-                  <span className="block font-bold text-slate-900 tracking-tight">{item.employeeName || item.employeeId}</span>
-                  <span className="mt-1 block max-w-[220px] truncate font-mono text-[10px] text-slate-400">
-                    {item.calculationHash}
-                  </span>
+                <div className="flex justify-center">
+                  {hasChange ? (
+                    <span className="h-2 w-2 rounded-full bg-indigo-500 ring-2 ring-indigo-200" title="Modification détectée" />
+                  ) : (
+                    <span className="h-2 w-2 rounded-full bg-slate-200" />
+                  )}
+                </div>
+                <div className="pr-2 truncate">
+                  <span className="block font-bold text-slate-900 tracking-tight truncate">{item.employeeName || item.employeeId}</span>
                 </div>
                 <span className="text-right font-medium text-slate-600">{formatMoney(item.grossSalary)}</span>
                 <span className="text-right font-medium text-slate-600">{formatMoney(item.ir)}</span>

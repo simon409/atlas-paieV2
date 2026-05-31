@@ -13,7 +13,21 @@ import { PayslipsPage } from "./pages/PayslipsPage.tsx";
 import { PayrollJournalPage } from "./pages/PayrollJournalPage.tsx";
 import { DashboardPage } from "./pages/DashboardPage.tsx";
 import MovementsPage from "./pages/MovementsPage.tsx";
+import { DeclarationsPage } from "./pages/DeclarationsPage.tsx";
 import { CompanyProvider } from "./app/CompanyContext.tsx";
+import TitleBar, { type TitleBarInfo } from "./components/TitleBar.tsx";
+
+const pageConfig: Record<string, TitleBarInfo> = {
+  "/dashboard":        { label: "AtlasPaie — Accueil",            dotColor: "bg-emerald-500" },
+  "/dashboard/employees": { label: "AtlasPaie — Fonctionnaires",      dotColor: "bg-blue-500" },
+  "/dashboard/movements": { label: "AtlasPaie — Mouvements de Paie", dotColor: "bg-violet-500" },
+  "/dashboard/runs":   { label: "AtlasPaie — Traitements / Runs", dotColor: "bg-amber-500" },
+  "/dashboard/payslips":  { label: "AtlasPaie — Bulletins de Paie",   dotColor: "bg-cyan-500" },
+  "/dashboard/journal": { label: "AtlasPaie — Journal de Paie",    dotColor: "bg-indigo-500" },
+  "/dashboard/payroll": { label: "AtlasPaie — Calcul de Paie",     dotColor: "bg-rose-500" },
+  "/dashboard/settings":   { label: "AtlasPaie — Configuration",       dotColor: "bg-slate-500" },
+  "/dashboard/declarations": { label: "AtlasPaie — Déclarations",       dotColor: "bg-teal-500" },
+};
 
 function App() {
   const route = useRoute();
@@ -36,6 +50,7 @@ function App() {
       navigate("/login");
       return;
     }
+
     if (route === "/login" && session) {
       navigate(defaultPrivateRoute);
     }
@@ -61,22 +76,32 @@ function App() {
     );
   }
 
-  if (route === "/login" || !session) {
-    return <LoginPage onLogin={handleLogin} />;
-  }
-
   return (
-    <CompanyProvider>
-      <AuthContext.Provider value={session}>
-        <DashboardLayout
-          route={route}
-          session={session}
-          onLogout={handleLogout}
-        >
-          {renderPrivateRoute(route)}
-        </DashboardLayout>
-      </AuthContext.Provider>
-    </CompanyProvider>
+    <div className="h-screen flex flex-col overflow-hidden">
+      {route === "/login" || !session ? (
+        <CompanyProvider>
+          <TitleBar info={pageConfig[route]} isLoginPage={true} />
+          <div className="flex-1 overflow-hidden">
+            <LoginPage onLogin={handleLogin} />
+          </div>
+        </CompanyProvider>
+      ) : (
+        <CompanyProvider>
+          <TitleBar info={pageConfig[route]} />
+          <div className="flex-1 overflow-hidden">
+            <AuthContext.Provider value={session}>
+              <DashboardLayout
+                route={route}
+                session={session}
+                onLogout={handleLogout}
+              >
+                {renderPrivateRoute(route)}
+              </DashboardLayout>
+            </AuthContext.Provider>
+          </div>
+        </CompanyProvider>
+      )}
+    </div>
   );
 }
 
@@ -98,6 +123,8 @@ function renderPrivateRoute(route: string) {
       return <PayrollJournalPage />;
     case "/dashboard/settings":
       return <SettingsPage />;
+    case "/dashboard/declarations":
+      return <DeclarationsPage />;
     default:
       return <EmployeesPage />;
   }

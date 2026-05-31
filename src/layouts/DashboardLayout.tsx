@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { formatSessionExpiry, type AuthSession } from "../auth/auth.ts";
 import { navigate, type AppRoute } from "../router/routes.ts";
-import { BadgeDollarSign, File, LayoutDashboard, Move, RefreshCcw, ScrollText, Settings, UsersIcon } from "lucide-react";
+import { BadgeDollarSign, File, LayoutDashboard, Move, RefreshCcw, ScrollText, Settings, Users } from "lucide-react";
 import { listCompanies, setActiveCompanyId } from "../db/companyStore.ts";
 import type { Company } from "../db/models.ts";
 import LOGO from "../assets/LOGO.png";
@@ -15,7 +15,7 @@ const navItems: Array<{ label: string; route: AppRoute; icon: ReactNode }> = [
   {
     label: "Fonctionnaires",
     route: "/dashboard/employees",
-    icon: <UsersIcon className="h-4 w-4" />
+    icon: <Users className="h-4 w-4" />
   },
   {
     label: "Mouvements de Paie",
@@ -38,7 +38,12 @@ const navItems: Array<{ label: string; route: AppRoute; icon: ReactNode }> = [
     icon: <ScrollText className="h-4 w-4" />
   },
   {
-    label: "Calcul de Paie",
+    label: "Déclarations",
+    route: "/dashboard/declarations",
+    icon: <File className="h-4 w-4" />
+  },
+  {
+    label: "Simulateur de Paie",
     route: "/dashboard/payroll",
     icon: <BadgeDollarSign className="h-4 w-4" />
   },
@@ -81,7 +86,7 @@ export function DashboardLayout({ children, route, session, onLogout }: { childr
   const currentActiveItem = navItems.find(item => route === item.route) || navItems[0];
 
   return (
-    <main className="h-screen w-screen overflow-hidden bg-zinc-50/50 text-zinc-900 antialiased">
+    <main className="h-full w-screen overflow-hidden bg-zinc-50/50 text-zinc-900 antialiased">
       <div className="grid h-full lg:grid-cols-[250px_minmax(0,1fr)]">
 
         {/* Sidebar Workspace Panel - Height fixed to container */}
@@ -124,7 +129,7 @@ export function DashboardLayout({ children, route, session, onLogout }: { childr
                 return (
                   <button
                     key={item.route}
-                    className={`relative flex h-9 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold transition-all duration-150 group outline-none ${isActive
+                    className={`relative flex h-9 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold transition-all duration-150 group outline-none cursor-pointer ${isActive
                       ? "bg-zinc-100 text-zinc-900"
                       : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900"
                       }`}

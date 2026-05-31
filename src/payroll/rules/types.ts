@@ -1,4 +1,4 @@
-export type PayrollStep = "cnss" | "amo" | "frais_professionnels" | "ir" | "net";
+export type PayrollStep = "cnss" | "amo" | "frais_professionnels" | "ir" | "family_allowance" | "net";
 export type IRCalculationMode = "simplified" | "legal_simulation";
 
 
@@ -32,6 +32,11 @@ export interface IRRules {
   brackets: IRBracket[];
   familyDeductionPerDependent: number; // e.g. 360 MAD per dependent
   maxDependents: number; // e.g. 6
+}
+
+export interface FamilyAllowanceRules {
+  tiers: { count: number; amount: number }[];
+  maxChildren: number;
 }
 
 export interface FraisProRules {
@@ -71,6 +76,7 @@ export interface PayrollRules {
   cnss: CNSSRules;
   amo: AMORules;
   ir: IRRules;
+  familyAllowance: FamilyAllowanceRules;
   frais_professionnels: FraisProRules;
   seniority: SeniorityRules;
   overtime: OvertimeRules;

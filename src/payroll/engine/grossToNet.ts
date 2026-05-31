@@ -4,6 +4,7 @@ import type { PayrollInput, PayrollResult } from "../../types/payroll.types.ts";
 import { applyAMO } from "./pipeline/amo.ts";
 import { applyCNSS } from "./pipeline/cnss.ts";
 import { applyEmployerCost } from "./pipeline/employerCost.ts";
+import { applyFamilyAllowance } from "./pipeline/familyAllowance.ts";
 import { applyFraisProfessionnels } from "./pipeline/fraisProfessionnels.ts";
 import { applyIR } from "./pipeline/ir.ts";
 import { initPayrollState, serializePayrollState } from "./state.ts";
@@ -31,9 +32,12 @@ export function calculatePayroll(input: PayrollInput, rules: PayrollRules) {
   }
 
   state = applyIR(state, rules.ir, input.irMode ?? "simplified");
+  state = applyFamilyAllowance(state, rules.familyAllowance);
   state = {
     ...state,
-    netSalary: roundMoney(state.grossSalary.sub(state.cnssEmployee).sub(state.amoEmployee).sub(state.irNet)),
+    netSalary: roundMoney(
+      state.grossSalary.sub(state.cnssEmployee).sub(state.amoEmployee).sub(state.irNet).plus(state.familyAllowance),
+    ),
   };
 
   if (state.netSalary.lessThan(0)) {

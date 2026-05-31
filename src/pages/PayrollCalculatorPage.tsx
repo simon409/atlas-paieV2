@@ -77,6 +77,7 @@ export function PayrollCalculatorPage() {
       bonuses: totals.bonuses,
       deductions: totals.deductions,
       dependentsCount,
+      childrenCount: 0,
       irMode,
       cumulativeIR: irMode === "legal_simulation" ? cumulativeIR : undefined,
     }),

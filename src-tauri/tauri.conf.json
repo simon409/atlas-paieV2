@@ -12,10 +12,11 @@
   "app": {
     "windows": [
       {
-        "title": "atlas",
-        "width": 800,
-        "height": 600,
+        "title": "AtlasPaie — Gestion de Paie & RH",
+        "decorations": false,
+        "transparent": false,
         "resizable": true,
+        "maximized": true,
         "fullscreen": false
       }
     ],

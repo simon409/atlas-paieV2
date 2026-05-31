@@ -16,4 +16,6 @@ body {
   font-style: normal;
   background-color: #f8fafc;
   color: #0f172a;
+  overflow: hidden;
 }
+

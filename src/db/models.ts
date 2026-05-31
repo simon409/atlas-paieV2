@@ -82,6 +82,8 @@ export type PayrollItem = {
   cumulativeIrDue: number | null;
   roundingCarryForward: number;
   roundingDiff: number;
+  familyAllowance: number;
+  employeeSnapshot: string;
   traceJson: string;
 };
 
@@ -129,6 +131,56 @@ export type AppUser = {
   status: string;
   createdAt: Date;
   lastLoginAt: Date | null;
+};
+
+export type DeclarationType = "CNSS" | "IR";
+
+export type DeclarationStatus = "DRAFT" | "GENERATED";
+
+export type Declaration = {
+  id: string;
+  companyId: string;
+  type: DeclarationType;
+  period: string;
+  payrollRunId: string;
+  status: DeclarationStatus;
+  generatedAt: Date;
+  exported: boolean;
+  totals: DeclarationTotals;
+};
+
+export type DeclarationTotals = {
+  employeeCount: number;
+  totalGross: number;
+  totalCnssBase: number;
+  totalAmoBase: number;
+  totalEmployeeCnss: number;
+  totalEmployerCnss: number;
+  totalEmployeeAmo: number;
+  totalEmployerAmo: number;
+  totalIr: number;
+  totalNet: number;
+  totalFamilyAllowance: number;
+};
+
+export type DeclarationLine = {
+  id: string;
+  declarationId: string;
+  employeeId: string;
+  matricule: string;
+  fullName: string;
+  cnssNumber: string | null;
+  cin: string;
+  grossSalary: number;
+  cnssBase: number | null;
+  amoBase: number | null;
+  employeeCnss: number | null;
+  employerCnss: number | null;
+  employeeAmo: number | null;
+  employerAmo: number | null;
+  ir: number | null;
+  netSalary: number | null;
+  familyAllowance: number | null;
 };
 
 export type PayrollMovementDraft = Omit<PayrollMovement, "id" | "companyId" | "createdAt">;
